@@ -1,0 +1,24 @@
+﻿# Build outputs
+Debug/
+build/
+*.o
+*.d
+*.elf
+*.map
+*.bin
+*.hex
+*.lst
+*.log
+
+# IDE / local generated files
+.settings/
+*.launch
+
+# Temporary backups
+*.bak
+*.bak_*
+*.tmp
+
+# Python cache
+__pycache__/
+*.pyc
