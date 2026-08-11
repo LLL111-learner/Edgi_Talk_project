@@ -1,145 +1,175 @@
-# Edgi-Talk_M55_LVGL Example Project
+# Edgi Talk Smart Hood Control System
 
-[**中文**](./README_zh.md) | **English**
+基于 Edgi Talk 智能语音开发板和 RT-Thread 的智能油烟控制系统原型工程。项目当前定位为 **V0 纯开发板演示版**：不依赖外接传感器，通过软件模拟油烟、燃气、温度等厨房环境数据，并使用 LVGL 触摸界面、状态机、事件日志和 M55 -> M33 音频 IPC 提示完成完整演示闭环。
 
-## Introduction
+## 项目简介
 
-This example is based on the **Edgi-Talk platform**, demonstrating the **LVGL stress demo** running on **RT-Thread real-time operating system**.
-It allows users to quickly verify the board-level **LCD display driver** and the **LVGL graphics framework** porting, providing a reference for future GUI application development.
+传统油烟机通常依赖人工开关和手动调档，容易出现忘开、忘关、排烟不及时以及燃气泄漏难以及时提示等问题。本项目以 Edgi Talk 开发板为核心，实现一个可演示、可扩展的智能油烟控制系统：
 
-### LVGL Overview
+- 油烟浓度自动感知与风机档位自适应调节
+- 燃气泄漏预警与危险状态强制排风
+- 厨房风险评分与安全状态可视化
+- 多场景厨房环境模拟
+- 事件日志与运行报告统计
+- M55 应用核与 M33 音频核协同播放提示音
 
-**LVGL** (Light and Versatile Graphics Library) is an open-source embedded GUI development framework designed for resource-constrained devices. It provides modern graphical interfaces with optimized CPU and memory usage, running efficiently on both low-end MCUs and more powerful MPU platforms.
+当前阶段无需外接硬件，适合课程设计、比赛答辩、原型演示和后续硬件扩展验证。
 
-#### Key Features
+## 硬件平台
 
-1. **Lightweight**
-   Optimized for minimal memory and CPU usage, ideal for low-power devices and resource-constrained environments.
+- 开发板：Edgi Talk 智能语音开发板
+- 主控：Infineon PSoC Edge E84 系列双核架构
+- 应用侧：Cortex-M55，运行主 UI 与控制逻辑
+- 音频侧：Cortex-M33，运行音频服务并播放 WAV 提示音
+- 显示：板载 4.3 英寸触摸屏，竖屏 512 x 800 显示配置
+- 交互：板载触摸屏 + 板载按键
+- 操作系统：RT-Thread
+- 图形库：LVGL 9.2.0
 
-2. **Cross-platform**
-   Runs on multiple operating systems (FreeRTOS, RT-Thread, Zephyr, Linux) or bare-metal platforms. Only requires display and input drivers to be ported.
+## 已实现功能
 
-3. **Rich Widgets**
-   Includes buttons, labels, sliders, charts, tables, lists, etc., and allows custom widget extensions.
+### 1. 智能排烟控制
 
-4. **Advanced Rendering**
-   Supports anti-aliasing, transparency, gradients, shadows, rounded corners, and animations for modern UIs.
+系统根据模拟油烟浓度和温度变化自动控制风机状态：
 
-5. **Input Device Support**
-   Supports touchscreens, capacitive touch, mouse, keyboard, encoder, and multi-touch. Events are unified via LVGL’s event system.
+- 洁净状态：风机关闭，系统待机
+- 轻度油烟：自动开启低档排烟
+- 重度油烟或高温：自动切换高档排烟
+- 油烟下降后：进入延时净化，倒计时结束后关闭风机
 
-6. **Internationalization**
-   UTF-8 encoding with support for bidirectional text (e.g., Arabic, Hebrew).
+### 2. 燃气安全保护
 
-7. **Extensibility**
-   Flexible themes, styles, and integration with file systems and image decoders.
+燃气浓度具有最高控制优先级：
 
-#### Applications
+- 燃气预警：进入预警状态并保持高档排风
+- 燃气危险：强制风机高档运行，禁止普通关机/降档
+- 浓度恢复：进入确认倒计时，避免报警反复闪烁
 
-LVGL is widely used in:
+### 3. 风险评分
 
-* Consumer electronics (smart home panels, smartwatches, appliances)
-* Industrial HMI and instrumentation
-* Automotive displays (central console, passenger screen, instrument cluster)
-* Medical devices (portable monitors, handheld instruments)
+系统实时计算 `Kitchen Risk Score`，综合油烟、燃气、温度、运行时长和手动模式影响，形成 0-100 的风险评分，并通过颜色主题表达安全等级。
 
-#### Ecosystem & Community
+### 4. 场景模拟器
 
-LVGL is **MIT licensed** and supported by **SquareLine Studio** for GUI design and **LVGL Simulator** for PC-based development. A large community provides open-source widgets, themes, and porting examples.
+当前不接外部传感器，使用软件生成数据曲线。支持以下场景：
 
-## Hardware Description
+- Clean
+- Soup
+- Stir
+- Fry
+- Gas
+- Dry
 
-### Backlight Interface
+### 5. 多页面仪表盘 UI
 
-![alt text](figures/1.png)
+UI 已从单页演示改为竖屏多页面仪表盘：
 
-### MIPI Interface
+- Home：风险、状态、模式、风机和快捷控制
+- Monitor：油烟、燃气、温度和趋势曲线
+- Scene：场景模拟选择
+- Safe：燃气安全状态、危险锁定和声音状态
+- Report：排烟时长、报警次数、最高风险和最近事件
 
-![alt text](figures/2.png)
+说明：由于当前 LVGL 默认中文字库在板端显示异常，界面显示文本使用英文，保证实际演示可读。
 
-### PWR Interface
+### 6. 双核音频提示
 
-![alt text](figures/3.png)
+M55 侧负责控制逻辑和 UI，M33 侧负责音频服务。M55 通过 IPC 向 M33 发送提示命令，M33 播放对应 WAV 文件，例如：
 
-### BTB Socket
+- 低档排烟提示
+- 高档排烟提示
+- 燃气危险提示
+- 燃气恢复安全提示
+- 手动操作被危险状态阻止提示
 
-![alt text](figures/4.png)
-![alt text](figures/5.png)
+## 主要代码结构
 
-### MCU Interface
+```text
+applications/
+  main.c                 # M55 应用入口
+  smart_hood_demo.c      # 智能油烟控制系统主逻辑、UI、状态机、模拟器
+  hood_audio_ipc.h       # M55 与 M33 音频 IPC 命令定义
 
-![alt text](figures/6.png)
-![alt text](figures/7.png)
+libraries/Common/board/ports/lvgl/
+  lv_port_disp.c         # LVGL 显示适配
+  lv_port_disp.h         # 显示分辨率配置
+  lv_port_indev.c        # 触摸输入适配
 
-## Software Description
-
-* Developed on the **Edgi-Talk platform**, running on the **M55 application core**.
-* Example features:
-
-  * Initialize LVGL graphics library
-  * Run **lv_demo_stress** on the LCD
-  * Demonstrate rendering and performance testing
-* Code structure is clear for understanding display driver integration and LVGL porting.
-
-## Usage
-n> **⚠️ Note:** This project requires **RT-Thread Studio 2.2.9** or higher.
-
-### Build and Download
-
-1. Open and compile the project.
-2. Connect the board USB to the PC using the **onboard debugger (DAP)**.
-3. Flash the generated firmware to the board.
-
-### Running Result
-
-* After flashing and powering on, the system automatically runs **lv_demo_stress** on the LCD.
-* Users can modify `applications/main.c` to switch to other LVGL demos (e.g., `lv_demo_widgets`, `lv_demo_music`).
-
-## Notes
-
-> **⚠️ Note:** This project requires **RT-Thread Studio 2.2.9** or higher.
-
-* To modify the **graphical configuration**, use:
-
-```
-tools/device-configurator/device-configurator.exe
-libs/TARGET_APP_KIT_PSE84_EVAL_EPC2/config/design.modus
+board/
+  board.c / board.h      # 板级初始化
 ```
 
-* Save and regenerate code after modifications.
-* If the screen shows no output, check:
+## 核心软件模块
 
-  * LCD connections and power supply
-  * `lv_port_disp.c` and `lv_port_indev.c` match the actual hardware
+虽然当前主要集中在 `applications/smart_hood_demo.c` 中实现，但逻辑上划分为以下模块：
 
-## Startup Sequence
+- `sensor_sim`：生成油烟、燃气、温度模拟数据
+- `control_fsm`：处理自动、手动、报警、延时净化等状态切换
+- `fan_model`：抽象风机开关和档位
+- `ui_dashboard`：LVGL 页面、按钮、仪表卡和趋势曲线
+- `event_log`：记录最近事件和演示统计
+- `audio_ipc`：M55 向 M33 发送提示音播放命令
 
+## 构建与烧录
+
+### 环境要求
+
+- RT-Thread Studio 2.2.9 或更高版本
+- Edgi Talk / PSoC Edge E84 相关 BSP 与工具链
+- 板载 DAP 调试下载器
+
+### 构建方式
+
+在 RT-Thread Studio 中导入工程后直接 Build。
+
+也可以在工程目录下使用命令行构建：
+
+```powershell
+cd E:\RT_Thread\RT-ThreadStudio\workspace\Edgi_Talk_M55_LVGL_1
+mingw32-make -C Debug all
 ```
-+------------------+
-|   Secure M33     |
-|  (Secure Core)   |
-+------------------+
-          |
-          v
-+------------------+
-|       M33        |
-| (Non-Secure Core)|
-+------------------+
-          |
-          v
-+-------------------+
-|       M55         |
-| (Application Core)|
-+-------------------+
+
+构建成功后生成：
+
+```text
+Debug/rtthread.hex
 ```
 
-⚠️ Strictly follow the flashing order to ensure proper system operation.
+### 烧录说明
 
----
+本工程为 M55 应用核工程。板端运行时需要 M33 侧完成安全启动和音频服务初始化。推荐流程：
 
-* If the example fails, first flash **Edgi_Talk_M33_Blink_LED** to ensure proper initialization.
-* To enable M55, configure in **M33 project**:
+1. 确认 M33 侧工程已经正确烧录并能启动 M55。
+2. 烧录本工程生成的 `Debug/rtthread.hex` 到 M55 应用侧。
+3. 复位开发板，屏幕显示 Smart Hood UI 后即可演示。
 
-```
-RT-Thread Settings --> Hardware --> select SOC Multi Core Mode --> Enable CM55 Core
-```
+## 演示流程
+
+1. 进入 Home 页面，观察风险分数、状态、模式和风机状态。
+2. 切换到 Scene 页面，选择 `Fry` 或 `Stir`，观察油烟上升。
+3. 返回 Monitor 页面，查看油烟/燃气趋势曲线和自动档位变化。
+4. 选择 `Gas` 场景，系统进入燃气危险或预警状态，强制高档排风。
+5. 切换到 Safe 页面，观察危险锁定和恢复倒计时。
+6. 切换到 Report 页面，展示运行时长、报警次数、最高风险和事件日志。
+
+## 后续扩展方向
+
+当前版本不依赖外设，后续可以扩展为真实智能家居原型：
+
+- 油烟/颗粒物检测：接入 PM2.5 激光颗粒物传感器，UART 或 I2C 通信
+- 燃气检测：接入 MQ-2/MQ-5/MQ-9 等传感器，ADC 采集并标定
+- 温度/干烧检测：接入红外温度传感器或温湿度传感器
+- 执行器控制：通过 PWM 控制风机，或通过继电器/舵机模拟油烟机按键
+- 联网告警：利用 WiFi 接入物联网平台，实现远程状态查看与报警推送
+- AI 扩展：结合视觉开发板实现干烧、溢锅、手势控制等高级功能
+
+## 当前限制
+
+- 当前传感器数据为软件模拟值，不代表真实环境浓度。
+- V0 阶段风机控制只体现在 UI 状态中，尚未绑定实际 PWM/GPIO/继电器。
+- 板端中文字体未完整启用，UI 文本暂用英文显示。
+- `Debug/` 编译产物默认不提交到 Git 仓库，如需烧录请本地重新构建。
+
+## 仓库说明
+
+本仓库保存 Edgi Talk M55 侧智能油烟控制系统工程代码。M33 音频工程如需独立维护，可另建仓库或作为后续子目录加入。
